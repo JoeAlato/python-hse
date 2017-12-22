@@ -133,7 +133,10 @@ def quiz():
         checked = [-1] * len(quiz_questions)
         for i, question in enumerate(quiz_questions):
             if request.form.get("question_" + str(i) + "_option_" + str(question[2])):
-                correct_choices[i] = True
+                if request.form.get("question_" + str(i) + "_option_" + str(int(not(bool(question[2]))))):
+                    correct_choices[i] = False
+                else:
+                    correct_choices[i] = True
             else:
                 correct_choices[i] = False
             if request.form.get("question_" + str(i) + "_option_0"):
