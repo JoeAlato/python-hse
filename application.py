@@ -12,11 +12,18 @@ ad = AlphabetDetector()
 with urllib.request.urlopen('https://yandex.ru/pogoda/10463?') as response:
     html = response.read()
 soup = BeautifulSoup(html, 'html.parser')
+old_dictionary = {"бледный": "блѣдный", "гнедой": "гнѣдой",
+                  "змей": "змѣй", "лелеять": "лелѣять", "недра": "нѣдра",
+                  "певец": "пѣвецъ", "свирель": "свирѣль", "слепой": "слѣпой",
+                  "зрение": "зрѣніе", "ездить": "ѣздить"}
 
 
 def prerevolutionary_form(word):
-    result = word + "ъ"
-    return result
+    if word in old_dictionary.keys():
+        return old_dictionary[word]
+    else:
+        result = word + "ъ"
+        return result
 
 
 def scrape_weather():
@@ -108,30 +115,42 @@ def newspaper():
     return render_template('vpravda.html', error=error, most_frequent_words=most_frequent_words, prerevolutionary_words=prerevolutionary_words,
                            temp=temp, wind_speed=wind_speed, condition=condition_image)
 
+quiz_questions = []
+words = list(old_dictionary.keys())[:10]
+for word in words:
+    first_correct = random.choice([True, False])
+    if first_correct:
+        quiz_questions.append([prerevolutionary_form(word), word, 0])
+    else:
+        quiz_questions.append([word, prerevolutionary_form(word), 1])
 
 @app.route('/quiz', methods=['GET', 'POST'])
 def quiz():
-    error = ""
-    quiz_questions = []
-    words = ['хлеб', 'государь', 'милость', '']
-    for word in words:
-        first_correct = random.choice([True, False])
-        if first_correct:
-            quiz_questions.append([prerevolutionary_form(word), word, 0])
-        else:
-            quiz_questions.append([word, prerevolutionary_form(word), 1])
-    correct_choices = [-1] * len(quiz_questions)
+    global quiz_questions
     if request.method == 'POST':
+        error = ""
+        correct_choices = [-1] * len(quiz_questions)
+        checked = [-1] * len(quiz_questions)
         for i, question in enumerate(quiz_questions):
             if request.form.get("question_" + str(i) + "_option_" + str(question[2])):
                 correct_choices[i] = True
             else:
                 correct_choices[i] = False
-        return render_template('quiz.html', error=error, quiz_questions=quiz_questions, correct_choices = correct_choices,
-                           temp=temp, wind_speed=wind_speed, condition=condition_image)
+            if request.form.get("question_" + str(i) + "_option_0"):
+                checked[i] = True
+            else:
+                if request.form.get("question_" + str(i) + "_option_1"):
+                    checked[i] = False
+        return render_template('quiz.html', error=error, quiz_questions=quiz_questions,
+                               correct_choices = correct_choices, checked=checked,
+                               temp=temp, wind_speed=wind_speed, condition=condition_image)
     else:
-        return render_template('quiz.html', error=error, quiz_questions=quiz_questions, correct_choices = correct_choices,
-                           temp=temp, wind_speed=wind_speed, condition=condition_image)
+        error = ""
+        correct_choices = [-1] * len(quiz_questions)
+        checked = [-1] * len(quiz_questions)
+        return render_template('quiz.html', error=error, quiz_questions=quiz_questions,
+                               correct_choices = correct_choices, checked=checked,
+                               temp=temp, wind_speed=wind_speed, condition=condition_image)
 
 
 if __name__ == '__main__':
