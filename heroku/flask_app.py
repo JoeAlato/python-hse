@@ -10,17 +10,16 @@ import pandas as pd
 import pickle
 import nltk
 import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
 nltk.download('punkt')
-sns.set_style("whitegrid")
 from nltk.probability import FreqDist
 app = Flask(__name__)
 
 morph = MorphAnalyzer()
 m = Mystem()
 
-DATA_PATH = "/home/kaprushka/mysite/data/"
+DATA_PATH = "data/"
 candidates_pos = pickle.load(open(DATA_PATH + 'candidates_pos.p', 'rb'))
 candidates_verbs_grammar = pickle.load(open(DATA_PATH + 'candidates_verbs_grammar.p', 'rb'))
 candidates_nouns_grammar = pickle.load(open(DATA_PATH + 'candidates_nouns_grammar.p', 'rb'))
@@ -213,13 +212,20 @@ def main_post():
 
 @app.route('/iz', methods = ['GET', 'POST'])
 def plot_iz():
-    pd_data = pd.read_csv('data/iz.csv')
+    pd_data = pd.read_csv(DATA_PATH + 'iz.csv')
     tokens = pd_data['text'].apply(str.lower).apply(nltk.tokenize.word_tokenize)
     all_tokens = [token for text in tokens for token in text]
     fd = FreqDist(all_tokens)
     data = {x[0]: x[1] for x in fd.most_common(10)}
     plt.xticks(rotation='vertical')
-    plt.bar(data.keys(), data.values(), 1, edgecolor = 'w', color='g')
-    ax = sns.barplot(list(data.keys()), list(data.values()))
-    plt.savefig('plot.png')
+    print(list(data.keys()))
+    print(list(data.values()))
+    plt.bar(list(data.keys()), list(data.values()), 1, edgecolor = 'w', color='g')
+    plt.savefig('static/plot.png')
     return render_template('iz.html')
+
+if __name__ == '__main__':
+    import os
+    app.debug = True
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)

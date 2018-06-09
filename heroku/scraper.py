@@ -20,47 +20,51 @@ import re
 import pandas as pd
 from datetime import datetime
 import time
-source_url = 'https://iz.ru/'
+from rq import Queue
+from worker import conn
 
-source_url_kultura = 'https://iz.ru/rubric/kultura'
+q = Queue(connection=conn)
 
-content = requests.get(source_url)
-soup = BeautifulSoup(content.text, 'html.parser')
+result = q.enqueue(scrape)
 
-stories = soup.findAll('div', {'class': 'two-infographic-block__item__inside__info__description description-box '})
-urls = soup.findAll('a')
-regex = re.compile("\/\d+\/([a-z-]+|[\d-]+)\/(.?)*")
-
-url_stories = []
-for url in urls:
-    if 'href' in url.attrs.keys() and re.match(regex, url.attrs['href']):
-        url_stories.append(url.attrs['href'])
-
-articles = []
-
-url_stories_short = url_stories[:20]
-for i, url in enumerate(url_stories_short[len(articles):]):
-    print('Progress:', i)
-    current_url = source_url[:-1] + url
-    content = requests.get(current_url)
+def scrape():
+    source_url = 'https://iz.ru/'
+    content = requests.get(source_url)
     soup = BeautifulSoup(content.text, 'html.parser')
-    current_text = []
-    article_body = soup.findAll('div', {'itemprop': 'articleBody'})
-    if len(article_body) > 0:
-        for paragraph in article_body[0].findAll(['p', re.compile('^h[1-6]$')]):
-            if len(paragraph.text.strip()) > 0:
-                current_text.append(paragraph.text.replace('\xa0', ' '))
-        current_text = ' '.join(current_text)
-        current_date = soup.find('time').attrs['datetime']
-        articles.append({'text': current_text, 'url': current_url, 'date': current_date})
-    time.sleep(3)
 
-pd_data = pd.DataFrame(articles)
-pd_data.drop_duplicates(subset='text', inplace = True)
+    urls = soup.findAll('a')
+    regex = re.compile("\/\d+\/([a-z-]+|[\d-]+)\/(.?)*")
 
-def transform_date(date_string):
-  return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
+    url_stories = []
+    for url in urls:
+        if 'href' in url.attrs.keys() and re.match(regex, url.attrs['href']):
+            url_stories.append(url.attrs['href'])
 
-pd_data['timestamp'] = pd_data['date'].apply(transform_date)
-pd_data['time_difference'] = [x.days for x  in datetime.now() - pd_data['timestamp']]
-pd_data.to_csv('iz' + str(datetime.now()) + '.csv')
+    articles = []
+
+    url_stories_short = url_stories[:20]
+    for i, url in enumerate(url_stories_short[len(articles):]):
+        print('Progress:', i)
+        current_url = source_url[:-1] + url
+        content = requests.get(current_url)
+        soup = BeautifulSoup(content.text, 'html.parser')
+        current_text = []
+        article_body = soup.findAll('div', {'itemprop': 'articleBody'})
+        if len(article_body) > 0:
+            for paragraph in article_body[0].findAll(['p', re.compile('^h[1-6]$')]):
+                if len(paragraph.text.strip()) > 0:
+                    current_text.append(paragraph.text.replace('\xa0', ' '))
+            current_text = ' '.join(current_text)
+            current_date = soup.find('time').attrs['datetime']
+            articles.append({'text': current_text, 'url': current_url, 'date': current_date})
+        time.sleep(3)
+
+    pd_data = pd.DataFrame(articles)
+    pd_data.drop_duplicates(subset='text', inplace = True)
+
+    def transform_date(date_string):
+      return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
+
+    pd_data['timestamp'] = pd_data['date'].apply(transform_date)
+    pd_data['time_difference'] = [x.days for x  in datetime.now() - pd_data['timestamp']]
+    pd_data.to_csv('iz' + str(datetime.now()) + '.csv')
